@@ -1,0 +1,69 @@
+#!/bin/bash
+### [ DTC-CLI ]
+### Réalisé avec amour et tendresse par miccarr
+
+CACHE_DIR="$HOME/.dtc"; # Dossier où l'on stocke les quotes
+
+DTC_URL="https://danstonchat.com/random0.html"; # URL de la page
+QUOTES_RE='<div class="item-content">(.*?)</div>';
+ID_RE='danstonchat.com\/([0-9]*).html';
+COL1_RE='<span\ class=\"decoration\"\ style=\"background-color\: RGB\(';
+COL2_RE='[0-9][0-9][0-9],[0-9][0-9][0-9],[0-9][0-9]'
+COL3_RE='\)\;\">'
+
+echo
+
+# Création du dossier cache s'il n'existe pas
+if [ ! -d "$DIRECTORY" ]; then
+    mkdir -p $CACHE_DIR;
+fi
+
+# Récupération de quotes si le répertoire est vide
+if [ -z "$(ls -A $CACHE_DIR)" ]; then
+
+    # Téléchargement
+    document=$(curl $DTC_URL -s | tr '\n' ' ' | tr '\r' ' ');
+
+    # Récupération des quotes par expression régulière
+    IFS="
+"
+    quotes=($( echo "$document" | egrep -o "$QUOTES_RE" ));
+
+    # Traitement des quotes
+    for i in ${quotes[@]}; do
+
+        # Récupérer l'ID et le contenu
+        [[ $i =~ $ID_RE ]];
+        quoteid=${BASH_REMATCH[1]};
+        content=$i;
+
+        # Nettoyages=
+        content=${content//<br \/>/↵};
+        content=${content//↵\ /↵};
+        content=${content//&quot;/\"};
+        content=${content//.../…};
+        content=${content//&#039;/\'};
+        content=${content//&lt;/<};
+        content=${content//&gt;/>};
+        content=${content//<\/div>/};
+        content=${content//<\/a>/};
+        content=${content/<div class=\"item-content\">/};
+        content=${content/<a href=\"https\:\/\/danstonchat\.com\/$quoteid.html\">/};
+
+        # Couleurs
+        esc=$(printf '\033') # Escape char
+        content=${content//\*<\/span>/$esc[0;37m\* $esc[3;4;37m}; # Action
+        content=${content//<\/span>/$esc[0m}; # Normal
+        content=${content//$COL1_RE/$esc[0;1;3}; # Color1
+        #content=$( echo $content | sed "s|$ENDCOL_RE||g" ); # Color2
+        content=${content//$COL2_RE/}; # Color2
+        content=${content//$COL3_RE/m}; # Color3
+
+        echo " $content" | tr '↵' '\n' > $CACHE_DIR/$quoteid.txt
+
+    done
+
+fi
+
+file=$CACHE_DIR/$( ls $CACHE_DIR | head -n 1 )
+cat $file && rm $file
